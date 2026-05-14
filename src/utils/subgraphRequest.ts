@@ -1,3 +1,5 @@
+import { useRootStore } from 'src/store/root';
+
 export const SUBGRAPH_IDS = {
   'ccip-mainnet': 'E11p8T4Ff1DHZbwSUC527hkUb5innVMdTuP6A2s1xtm1',
   'ccip-arbitrum': 'GPpZfiGoDChLsiWoMG5fxXdRNEYrsVDrKJ39moGcbz6i',
@@ -16,24 +18,55 @@ export const SUBGRAPH_IDS = {
 
 export type SubgraphKey = keyof typeof SUBGRAPH_IDS;
 
-/**
- * Makes a GraphQL request to the subgraph via the server-side proxy
- */
+function isTorBrowser(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth === 1000 && window.innerHeight === 1000;
+}
+
 export async function subgraphRequest<T>(
   subgraphKey: SubgraphKey,
   query: string,
   variables?: Record<string, unknown>
 ): Promise<T> {
+  const isGov = subgraphKey.startsWith('gov-');
+
+  if (isGov) {
+    const preference = useRootStore.getState().privacyPreference;
+
+    if (preference === 'clearnet') {
+      const clearnetUrl = process.env.NEXT_PUBLIC_QUIXOTE_CLEARNET_URL;
+      if (!clearnetUrl) throw new Error('NEXT_PUBLIC_QUIXOTE_CLEARNET_URL is not configured');
+
+      const response = await fetch(clearnetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables }),
+      });
+      if (!response.ok) throw new Error(`Clearnet query failed: ${response.status}`);
+      const result = await response.json();
+      if (result.errors) throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+      return result.data;
+    }
+
+    // Tor mode: Tor Browser queries .onion directly, others go through the proxy
+    const onionUrl = process.env.NEXT_PUBLIC_QUIXOTE_URL;
+    if (isTorBrowser() && onionUrl) {
+      const response = await fetch(onionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables }),
+      });
+      if (!response.ok) throw new Error(`Direct Quixote query failed: ${response.status}`);
+      const result = await response.json();
+      if (result.errors) throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+      return result.data;
+    }
+  }
+
   const response = await fetch('/api/subgraph-proxy', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      subgraphKey,
-      query,
-      variables,
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subgraphKey, query, variables }),
   });
 
   if (!response.ok) {
@@ -46,10 +79,6 @@ export async function subgraphRequest<T>(
   }
 
   const data = await response.json();
-
-  if (data.errors) {
-    throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
-  }
-
+  if (data.errors) throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
   return data.data;
 }

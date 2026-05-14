@@ -1182,6 +1182,7 @@ msgid "{selectedCount} Categories"
 msgstr "{selectedCount} Categories"
 
 #: src/components/CircleIcon.tsx
+#: src/modules/governance/TorStatusIndicator.tsx
 msgid "{tooltipText}"
 msgstr "{tooltipText}"
 
