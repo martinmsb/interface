@@ -3,7 +3,7 @@ import { QuixoteClient } from 'quixote-tor-client';
 import { SUBGRAPH_IDS, SubgraphKey } from 'src/utils/subgraphRequest';
 
 const governanceClient = new QuixoteClient({
-  url: process.env.NEXT_PUBLIC_QUIXOTE_URL!,
+  url: `${process.env.NEXT_PUBLIC_QUIXOTE_URL}/graphql`,
   isolateStreams: true,
   strictTor: true,
 });
@@ -46,7 +46,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       subgraphKey,
       query,
       variables,
-    }: { subgraphKey: SubgraphKey; query: string; variables?: Record<string, unknown> } = req.body;
+      preference,
+    }: {
+      subgraphKey: SubgraphKey;
+      query: string;
+      variables?: Record<string, unknown>;
+      preference?: string;
+    } = req.body;
 
     if (!subgraphKey || !query) {
       return res.status(400).json({ error: 'Missing required fields: subgraphKey and query' });
@@ -57,6 +63,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (isGovernanceKey(subgraphKey)) {
+      if (preference === 'clearnet') {
+        const clearnetUrl = process.env.NEXT_PUBLIC_QUIXOTE_CLEARNET_URL;
+        if (!clearnetUrl)
+          return res
+            .status(500)
+            .json({ error: 'NEXT_PUBLIC_QUIXOTE_CLEARNET_URL is not configured' });
+        const upstream = await fetch(`${clearnetUrl}/graphql`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables }),
+        });
+        if (!upstream.ok)
+          return res
+            .status(upstream.status)
+            .json({ error: `Clearnet query failed: ${upstream.status}` });
+        const result = await upstream.json();
+        return res.status(200).json(result);
+      }
+
       const data = await governanceClient.request(query, variables);
       return res.status(200).json({ data });
     }

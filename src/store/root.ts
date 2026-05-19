@@ -73,6 +73,9 @@ if (typeof document !== 'undefined') {
 
       // Hydrate shield preference from localStorage
       useRootStore.getState().hydrateShield();
+
+      // Hydrate governance privacy preference from localStorage
+      useRootStore.getState().hydratePrivacyPreference();
     }
   };
 }

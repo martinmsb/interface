@@ -18,11 +18,6 @@ export const SUBGRAPH_IDS = {
 
 export type SubgraphKey = keyof typeof SUBGRAPH_IDS;
 
-function isTorBrowser(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.innerWidth === 1000 && window.innerHeight === 1000;
-}
-
 export async function subgraphRequest<T>(
   subgraphKey: SubgraphKey,
   query: string,
@@ -32,35 +27,46 @@ export async function subgraphRequest<T>(
 
   if (isGov) {
     const preference = useRootStore.getState().privacyPreference;
-
-    if (preference === 'clearnet') {
-      const clearnetUrl = process.env.NEXT_PUBLIC_QUIXOTE_CLEARNET_URL;
-      if (!clearnetUrl) throw new Error('NEXT_PUBLIC_QUIXOTE_CLEARNET_URL is not configured');
-
-      const response = await fetch(clearnetUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables }),
-      });
-      if (!response.ok) throw new Error(`Clearnet query failed: ${response.status}`);
-      const result = await response.json();
-      if (result.errors) throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
-      return result.data;
-    }
-
-    // Tor mode: Tor Browser queries .onion directly, others go through the proxy
     const onionUrl = process.env.NEXT_PUBLIC_QUIXOTE_URL;
-    if (isTorBrowser() && onionUrl) {
-      const response = await fetch(onionUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables }),
-      });
-      if (!response.ok) throw new Error(`Direct Quixote query failed: ${response.status}`);
-      const result = await response.json();
-      if (result.errors) throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
-      return result.data;
+
+    // If Tor is preferred and an onion URL is configured, try querying the onion
+    // directly — Tor Browser will succeed (it routes .onion natively). Regular
+    // browsers will fail immediately (DNS/CORS) and we fall through to the proxy.
+    if (preference === 'tor' && onionUrl) {
+      try {
+        const response = await fetch(`${onionUrl}/graphql`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables }),
+        });
+        if (!response.ok) throw new Error(`Direct Quixote query failed: ${response.status}`);
+        const result = await response.json();
+        if (result.errors) throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+        return result.data;
+      } catch {
+        // Not in Tor Browser or onion unreachable — fall through to proxy
+      }
     }
+
+    // All other gov cases go through the server-side proxy:
+    // - Tor preference + regular browser → proxy uses QuixoteClient (SOCKS5)
+    // - Clearnet preference → proxy fetches clearnet URL directly
+    const response = await fetch('/api/subgraph-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subgraphKey, query, variables, preference }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `Subgraph request failed: ${response.status} ${response.statusText} - ${JSON.stringify(
+          errorData
+        )}`
+      );
+    }
+    const data = await response.json();
+    if (data.errors) throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
+    return data.data;
   }
 
   const response = await fetch('/api/subgraph-proxy', {
