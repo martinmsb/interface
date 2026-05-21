@@ -11476,8 +11476,10 @@ quick-lru@^4.0.1:
   resolved "https://registry.yarnpkg.com/quick-lru/-/quick-lru-4.0.1.tgz#5b8878f113a58217848c6482026c73e1ba57727f"
   integrity sha512-ARhCpm70fzdcvNQfPoy49IaanKkTlRWF2JMzqhcJbhSFRZv7nPTvZJdcY7301IPmvW+/p0RgIWnQDLJxifsQ7g==
 
-"quixote-tor-client@file:../../quixote-tor-client":
+quixote-tor-client@^0.1.0:
   version "0.1.0"
+  resolved "https://registry.yarnpkg.com/quixote-tor-client/-/quixote-tor-client-0.1.0.tgz#082a137a45a6e712fdfba7f6b9bbdd5847a82ce7"
+  integrity sha512-Q1rD0YEwFsvAHhCobREZRYOLU9xApE6ONpUSWo6RmGjSVjoJm3p7Ifx34MMKzJFHHauRZpWQCjhAdP1zE3h9fQ==
   dependencies:
     graphql "^16.0.0"
     graphql-request "^7.0.0"
