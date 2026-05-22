@@ -1,34 +1,25 @@
 import { Trans } from '@lingui/macro';
 import { Box, Chip, Tooltip } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { PrivacyPreference } from 'src/store/privacySlice';
 import { useRootStore } from 'src/store/root';
-
-function isTorBrowser(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.innerWidth === 1000 && window.innerHeight === 1000;
-}
 
 export const TorStatusIndicator = () => {
   const preference = useRootStore((s) => s.privacyPreference);
   const setPrivacyPreference = useRootStore((s) => s.setPrivacyPreference);
-  const [torBrowser, setTorBrowser] = useState(false);
 
-  useEffect(() => {
-    setTorBrowser(isTorBrowser());
-  }, []);
+  const toggle = () =>
+    setPrivacyPreference(
+      preference === PrivacyPreference.Tor ? PrivacyPreference.Clearnet : PrivacyPreference.Tor
+    );
 
-  const toggle = () => setPrivacyPreference(preference === 'tor' ? 'clearnet' : 'tor');
+  const dotColor = preference === PrivacyPreference.Clearnet ? '#8E92A3' : '#46BC4B';
 
-  const dotColor = preference === 'clearnet' ? '#8E92A3' : '#46BC4B';
-
-  const label = preference === 'clearnet' ? 'Clearnet' : torBrowser ? 'Tor Browser' : 'Tor';
+  const label = preference === PrivacyPreference.Clearnet ? 'Clearnet' : 'Tor';
 
   const tooltipText =
-    preference === 'clearnet'
+    preference === PrivacyPreference.Clearnet
       ? 'Queries use clearnet. Click to enable Tor routing.'
-      : torBrowser
-      ? 'Queries go directly to .onion via Tor Browser. Click to switch to clearnet.'
-      : 'Queries routed through Tor via server-side proxy. Click to switch to clearnet.';
+      : 'Queries routed through Tor. Click to switch to clearnet.';
 
   return (
     <Tooltip title={<Trans>{tooltipText}</Trans>} placement="bottom" arrow>

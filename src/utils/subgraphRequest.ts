@@ -1,3 +1,4 @@
+import { PrivacyPreference } from 'src/store/privacySlice';
 import { useRootStore } from 'src/store/root';
 
 export const SUBGRAPH_IDS = {
@@ -32,7 +33,7 @@ export async function subgraphRequest<T>(
     // If Tor is preferred and an onion URL is configured, try querying the onion
     // directly — Tor Browser will succeed (it routes .onion natively). Regular
     // browsers will fail immediately (DNS/CORS) and we fall through to the proxy.
-    if (preference === 'tor' && onionUrl) {
+    if (preference === PrivacyPreference.Tor && onionUrl) {
       try {
         const response = await fetch(`${onionUrl}/graphql`, {
           method: 'POST',

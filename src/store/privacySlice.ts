@@ -2,14 +2,19 @@ import { StateCreator } from 'zustand';
 
 import { RootStore } from './root';
 
-export type PrivacyPreference = 'tor' | 'clearnet';
+export enum PrivacyPreference {
+  Tor = 'tor',
+  Clearnet = 'clearnet',
+}
 
 const PRIVACY_STORAGE_KEY = 'govPrivacyPreference';
 
 function readStoredPreference(): PrivacyPreference {
-  if (typeof window === 'undefined') return 'tor';
+  if (typeof window === 'undefined') return PrivacyPreference.Tor;
   const stored = localStorage.getItem(PRIVACY_STORAGE_KEY);
-  return stored === 'tor' || stored === 'clearnet' ? stored : 'tor';
+  return stored === PrivacyPreference.Tor || stored === PrivacyPreference.Clearnet
+    ? stored
+    : PrivacyPreference.Tor;
 }
 
 export interface PrivacySlice {
